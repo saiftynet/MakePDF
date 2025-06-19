@@ -1,0 +1,278 @@
+<html>
+<head>
+<style>
+</style>
+<!--script type="text/javascript" src="scripts/pdf2/polyfills.umd.js"></script-->
+<script type="text/javascript" src="scripts/pdf2/jspdf.umd.js"></script>
+
+<script type="text/javascript">
+	var jsPDF = window.jspdf.jsPDF;
+	document.addEventListener('DOMContentLoaded',function() {
+		if(jsPDF && jsPDF.version) {
+			document.getElementById('dversion').innerHTML='Uses <a href="https://github.com/parallax/jsPDF">jsPDF</a> Version ' + jsPDF.version;
+		}
+		else{
+			document.getElementById('dversion').innerHTML='Error! Failed to find jsPDF';
+		}
+		if(PDFObject && PDFObject.pdfobjectversion) {
+			document.getElementById('dversion').innerHTML+=': Uses <a href="https://github.com/pipwerks/PDFObject">PDFObject</a> Version ' + PDFObject.pdfobjectversion;
+		}
+		else{
+			document.getElementById('dversion').innerHTML+=': Error! Failed to find PDFObject';
+		}
+	});
+</script>
+
+<script type="text/javascript" src="scripts/pdf2/pdfobject.min.js"></script>
+		
+<script src="scripts/preDefs.js"></script>
+<script>
+	var doc;
+
+	var pos={"start":0,"end":0};
+	
+	function addThis(element){
+		var str=element.childNodes[0].innerText+"("+element.childNodes[1].innerText+")\n";
+		//var pos=getCursorPos(document.getElementById("textMarkup"));
+		var oldTA=document.getElementById("textMarkup").value;
+		var newTA=oldTA.slice(0,pos.start+1)+str+oldTA.slice(pos.end+1);
+		document.getElementById("textMarkup").value=newTA;
+		pos.start=pos.start+str.length;
+		pos.end=pos.start;
+		
+	}
+	
+function Construct(){
+	var doc=initPDF();
+	var lines=document.getElementById("textMarkup").value.split("\n");
+	var cursor=20;
+	var lineSize=10;
+	for (var i=0;i<lines.length;i++){
+		var RE=/^([a-zA-Z]+)\((.*)\)/;
+		var d=lines[i].match(RE);
+		if (!d  || d.length<2) continue;
+		doc=parseLine(d[1],d[2],doc);
+	}
+	refresh(doc);
+	return doc;
+}
+
+function initPDF(){
+	const doc =  new jsPDF();
+	doc.setProperties({
+		title: 'Consent Form',
+		subject: 'Procedure:THR',
+		author: 'Saif Ahmed',
+		keywords:'Patient Information, NHS Compliant,',
+		creator: 'The Consent Form (TM)'
+});
+   return doc;
+	
+}
+
+function parseLine(command,params,pdf){
+		var p=params.match(/(\"[^\"]+\"|[^,]+)(?:,\s*)?/g);
+		if (p)	for(var i=0;i<p.length-1;i++) p[i]=p[i].slice(0,-1);
+		if (command=="text") pdf.text(p[0],parseInt(p[1]),parseInt(p[2],p[3]?p[3]:""));
+		else if (command=="setFontSize") pdf.setFontSize(parseInt(p[0]));
+		else if (command=="setFont"){
+			pdf.setFont(p[0],p[1]);
+		}
+		else if (command=="setFontStyle") pdf.setFontStyle(p[0]);
+		else if (command=="setTextColor"){
+			if (p.length==1) pdf.setTextColor(parseInt(p[0]));
+			else  pdf.setTextColor(parseInt(p[0]),parseInt(p[1]),parseInt(p[2]));
+		}
+		else if (command=="addPage") pdf.addPage();
+		else if (command=="setDrawColor") pdf.setDrawColor(parseInt(p[0]),parseInt(p[1]),parseInt(p[2]));
+		else if (command=="setFillColor"){
+			if (p.length==1) pdf.setFillColor(parseInt(p[0]));
+			else  pdf.setFillColor(parseInt(p[0]),parseInt(p[1]),parseInt(p[2]));
+		}
+		else if (command=="setLineWidth") pdf.setLineWidth(parseFloat(p[0]));
+		else if (command=="rect") pdf.rect(parseInt(p[0]),parseInt(p[1]),parseInt(p[2]),parseInt(p[3]),p[4]?p[4]:"");
+		else if (command=="circle") pdf.circle(parseInt(p[0]),parseInt(p[1]),parseInt(p[2]),p[3]?p[3]:"");
+		else if (command=="ellipse") pdf.ellipse(parseInt(p[0]),parseInt(p[1]),parseInt(p[2]),parseInt(p[3]),p[4]?p[4]:"");
+		else if (command=="roundedRect") pdf.roundedRect(parseInt(p[0]),parseInt(p[1]),parseInt(p[2]),parseInt(p[3]),parseInt(p[4]),p[5]?p[5]:"");
+		else if (command=="triangle") pdf.triangle(parseInt(p[0]),parseInt(p[1]),parseInt(p[2]),parseInt(p[3]),parseInt(p[4]),parseInt(p[5]),p[6]?p[6]:"");
+	    return pdf;
+}
+
+function refresh(pdf){
+	var blobPDF=new Blob([pdf.output('blob')],{type : 'application/pdf'});
+	var blobURL=URL.createObjectURL(blobPDF);
+	//var embed=document.createElement("embed");
+	PDFObject.embed(blobURL, "#preview-pane");
+}
+
+function getCursorPos(input) {
+    if (input && "selectionStart" in input && document.activeElement == input) {
+        return {
+            start: input.selectionStart,
+            end: input.selectionEnd
+        };
+    }
+    else if (input && input.createTextRange) {
+        var sel = document.selection.createRange();
+        if (sel.parentElement() === input) {
+            var rng = input.createTextRange();
+            rng.moveToBookmark(sel.getBookmark());
+            for (var len = 0;
+                     rng.compareEndPoints("EndToStart", rng) > 0;
+                     rng.moveEnd("character", -1)) {
+                len++;
+            }
+            rng.setEndPoint("StartToStart", input.createTextRange());
+            for (var pos = { start: 0, end: len };
+                     rng.compareEndPoints("EndToStart", rng) > 0;
+                     rng.moveEnd("character", -1)) {
+                pos.start++;
+                pos.end++;
+            }
+            return pos;
+        }
+    }
+    return -1;
+}
+function setCursorPos(input, start, end) {
+    if (arguments.length < 3) end = start;
+    if ("selectionStart" in input) {
+        setTimeout(function() {
+            input.selectionStart = start;
+            input.selectionEnd = end;
+        }, 1);
+    }
+    else if (input.createTextRange) {
+        var rng = input.createTextRange();
+        rng.moveStart("character", start);
+        rng.collapse();
+        rng.moveEnd("character", end - start);
+        rng.select();
+    }
+}
+
+function getPDF(){
+	var doc=Construct();
+	doc.save("download.pdf")
+}
+
+function TAClick(input){
+	pos=getCursorPos(input);
+
+}
+// local file operations
+function saveTextAsFile() {
+  var textToWrite = document.getElementById('textMarkup').value;
+  var textFileAsBlob = new Blob([ textToWrite ], { type: 'text/plain' });
+  var fileNameToSaveAs = "test.txt"; //filename.extension
+
+  var downloadLink = document.createElement("a");
+  downloadLink.download = fileNameToSaveAs;
+  downloadLink.innerHTML = "Download File";
+  if (window.webkitURL != null) {
+    // Chrome allows the link to be clicked without actually adding it to the DOM.
+    downloadLink.href = window.webkitURL.createObjectURL(textFileAsBlob);
+  } else {
+    // Firefox requires the link to be added to the DOM before it can be clicked.
+    downloadLink.href = window.URL.createObjectURL(textFileAsBlob);
+    downloadLink.onclick = destroyClickedElement;
+    downloadLink.style.display = "none";
+    document.body.appendChild(downloadLink);
+  }
+
+  downloadLink.click();
+}
+
+
+function destroyClickedElement(event) {
+  // remove the link from the DOM
+  document.body.removeChild(event.target);
+}
+
+
+function loadPreDef(template,destination){
+	alert(template);
+	document.getElementById(destination).value=preDefs[template];
+	
+}
+</script>
+
+</head>
+
+<body onload='PDFObject.embed("templates/test.pdf", "preview-pane")' >
+	<div style="float:left;position:relative;border:solid 1px">
+		<div style="font-family:sans;font-size:1.5em;font-weight:bolder">The Template Builder<br><span style="font-size:.5em;" id=dversion></span></div>
+	<table border=2  style="width:40em">
+	<tr><th>Keyword</th><th>Parameters</th><th>&nbsp;</th></tr>
+	<tr><td>addPage</td><td>--NONE--</td><td onclick="addThis(this.parentNode)">#</td></tr>
+	<tr><td>save</td><td>filename</td><td onclick="addThis(this.parentNode)">#</td></tr>
+	<tr><td colspan=3></td></tr>
+	
+	<tr><td>text</td><td>Text,yPos,yPos</td><td onclick="addThis(this.parentNode)">#</td></tr>
+	<tr><td>setFont</td><td>[helvetica,courier,times],[normal,bold,italic,bolditalic]</td><td onclick="addThis(this.parentNode)">#</td></tr>
+	<tr><td>setFontSize</td><td>fontSize</td><td onclick="addThis(this.parentNode)">#</td></tr>
+	<!--tr><td>setFontType</td><td> </td><td onclick="addThis(this.parentNode)">#</td></tr-->
+	<tr><td>setTextColor</td><td>grayscaleNo || r,g,b</td><td onclick="addThis(this.parentNode)">#</td></tr>
+	<tr><td colspan=3></td></tr>
+  
+	<tr><td>setDrawColor</td><td>r,g,b</td><td onclick="addThis(this.parentNode)">#</td></tr>
+	<tr><td>setFillColor</td><td>r,g,b</td><td onclick="addThis(this.parentNode)">#</td></tr>
+	<tr><td>setLineWidth</td><td>width</td><td onclick="addThis(this.parentNode)">#</td></tr>
+	<tr><td>rect</td><td>startX,startY,width,height,["",F,FD]</td><td onclick="addThis(this.parentNode)">#</td></tr>
+	<tr><td>circle</td><td>centerX,centerY,radius,["",F,FD]</td><td onclick="addThis(this.parentNode)">#</td></tr>
+	<tr><td>ellipse</td><td>startX,startY,width,height,["",F,FD]</td><td onclick="addThis(this.parentNode)">#</td></tr>
+	<tr><td>roundedRect</td><td>startX,startY,width,height,radius,["",F,FD]</td><td onclick="addThis(this.parentNode)">#</td></tr>
+	<tr><td>triangle</td><td>x1,y1,x2,y2,x3,y3,["",F,FD]</td><td onclick="addThis(this.parentNode)">#</td></tr>
+	
+	</table>
+	
+<div id=menu style=width:30em:">
+<input type=button value=Construct onclick=Construct() />
+<input type=button value=SaveScript onclick=saveTextAsFile() />
+<input type=button value=DownloadPDF onclick=getPDF() /><br>
+LoadScript:
+<input type="file" id="textFileToRead"/>
+<script>
+	
+function readSingleFile(e) {
+  var file = e.target.files[0];
+  if (!file) {
+    return;
+  }
+  var filereader = new FileReader();
+  filereader.onload = function(e) {
+    var contents = e.target.result;
+    displayContents(contents);
+  };
+  filereader.readAsText(file);
+}
+
+function displayContents(contents) {
+  var element = document.getElementById('textMarkup');
+  element.value = contents;
+}
+
+document.getElementById('textFileToRead')
+  .addEventListener('change', readSingleFile, false);
+
+</script>
+&nbsp;&nbsp;PreDefinedScripts:<select onchange=loadPreDef(this.value,"textMarkup")>
+	<option></option>
+   <option>Consent1-1P</option>
+   <option>Consent1-2P</option>
+   <option>Consent1-2PI</option>
+   <option>Consent2-2P</option>
+   <option>Consent2-2PI</option>
+   <option>Consent4</option>
+</select><br>
+<textarea style="width:100%;height:40%" id=textMarkup onmouseup="TAClick(this)"></textarea><br>
+
+</div>
+</div>
+<!--preview pane-->
+<div  style="float:left; height: 90%;padding-left:2em" >
+					<div id="preview-pane" style="width: 650px;position:relative; z-index:999"></div>
+</div>
+
+</body>
+</html>
